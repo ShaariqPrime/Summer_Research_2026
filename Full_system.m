@@ -17,15 +17,19 @@ clear;
 clc;
 
 %% ---------------- User settings ----------------
-
-fs = 48000;                 % sample rate (Hz) - set to your measurement rate
-frame_size = 256;          % Number of samples per frame
-Lw = 1024;                  % length of adaptive control filter W(z)
-mu = 5e-6;                % step size (start 0.01~0.3 typical; tune)
-delta = 1e-3;               % NLMS regularization
+% sample rate (Hz)
+fs = 48000;
+% Number of samples per frame
+frame_size = 256;
+% length of adaptive control filter W(z)
+Lw = 1024;                  
+% step size
+mu = 5e-6;                
+% NLMS regularization
+delta = 1e-3;               
 
 % Leakage (0 = none). Helps prevent drift in real systems.
-leak = 1e-5;                 % e.g. 1e-4
+leak = 1e-5;
 
 %% Estimate secondary path from impulse response
 
@@ -126,7 +130,7 @@ x_buf      = zeros(Lw-1,1);
 % buffer for x into S_hat(z)
 xhat_buf   = zeros(Lw,1);               
 % buffer for y into S(z) (plant)
-y_buf_S    = zeros(length(S_hat)-1,1);               
+y_buf_S    = zeros(length(S_hat)-1, 1);               
 
 % Randomly seed 
 rng(0);
@@ -135,26 +139,6 @@ disp("FxNLMS in progress...")
 %% Plot setup
 
 phase = round(20 * fs/ frame_size);
-% 
-% timeVec = (0:phase-1) * (frame_size/fs);
-% d_rms_db = nan(phase,1);
-% e_rms_db = nan(phase,1);
-% 
-% fig = figure('Name','ANC Baseline VS Error', 'NumberTitle','off');
-% ax1 = subplot(2,1,1);
-% hold on; grid on;
-% hD = plot(ax1, nan, nan, '-');
-% hE = plot(ax1, nan, nan, '-');
-% ylabel(ax1, 'RMS (dBFS)');
-% title(ax1, 'Level at error mic')
-% 
-% ax2 = subplot(2,1,2);
-% hold on; grid on;
-% hImp = plot(ax2, nan, nan, '-');
-% xlabel(ax2, 'Time (s)'); ylabel(ax2, 'Improvement (db)');
-% title(ax2, 'Baseline - ANC');
-% 
-% drawnow;
 
 scope = timescope( ...
     'SampleRate', fs, ...
@@ -165,6 +149,7 @@ scope = timescope( ...
     'ChannelNames', {'d(n) baseline', 'e(n) ANC'}, ...
     'YLimits', [-0.1 0.1]);
 
+% Data recording
 Trec = 40;
 Nrec = round(Trec * fs);
 
@@ -173,7 +158,6 @@ xLog     = zeros(Nrec, 1, 'single');                   % noise sent to noise spe
 yLog     = zeros(Nrec, 1, 'single');                   % cancel sent to cancel speaker
 
 writeIdx = 1;
-
 y_frame = zeros(frame_size, 1);
 
 %% ---------------- Main ANC loop ----------------
@@ -184,8 +168,8 @@ for i = 1:2
     for k = 1:phase
         % Random noise to noise speaker
         % x = 0.02 * randn(frame_size,1);
-        time = 0:1/frame_size:1-1/frame_size;
-        x = 0.03*sin(2*pi*400*time);    
+        time = (0:frame_size-1)/fs;
+        x = 0.03*sin(2*pi*400*time)';    
         
         % Initialise error and reference mic
         in = reader();
@@ -194,12 +178,10 @@ for i = 1:2
             micLog(writeIdx:idx2, :) = single(in);
             xLog(writeIdx:idx2)      = single(x);
             yLog(writeIdx:idx2)      = single(y_frame);
+        else
+            break
         end
         writeIdx = idx2 + 1;
-        
-        if writeIdx > Nrec
-            break;
-        end
 
         em = in(:,err_chan);
         % x = in(:,ref_chan);
@@ -213,7 +195,7 @@ for i = 1:2
         else
             % Controller output for next frame
             [y_frame, x_buf] = filter(w, 1, x, x_buf);
-            ymax = 0.02;                         % start small
+            ymax = 0.05;
             y_frame = max(min(y_frame, ymax), -ymax);
             % FxLMS algorithm
             [x_f, y_buf_S] = filter(S_hat, 1, x, y_buf_S);
@@ -234,29 +216,14 @@ for i = 1:2
         writer(y_out);
 
         if i == 1
-            d_frame = em;
-            e_frame = zeros(size(em));   % or NaN/zeros to keep port size consistent
+            scope(em, zeros(size(em)));
         else
-            d_frame = zeros(size(em));   % or keep last baseline if you want overlay
-            e_frame = em;
-        end
-        
-        scope(d_frame, e_frame);
+            scope(zeros(size(em)), em);
+        end       
+    end
 
-        % frameRMS = sqrt(mean(em.^2));
-        % lvl_db = 20*log10(frameRMS + 1e-12);
-        % 
-        % if i == 1
-        %     d_rms_db(k) = lvl_db;
-        % else
-        %     e_rms_db(k) = lvl_db;  % Store error mic level in dB
-        % end
-        % 
-        % % Update plots with new data
-        % set(hD,'XData', timeVec, 'YData', d_rms_db);
-        % set(hE,'XData', timeVec, 'YData', e_rms_db);
-        % set(hImp,'XData', timeVec, 'YData', d_rms_db - e_rms_db);
-        % drawnow limitrate;
+    if writeIdx > Nrec
+        break;  % Exit outer loop too
     end
 end
 
