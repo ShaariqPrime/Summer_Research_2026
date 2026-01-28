@@ -24,16 +24,15 @@ frame_size = 256;
 % length of adaptive control filter W(z)
 Lw = 1024;                  
 % step size
-mu = 5e-6;                
+mu = 1e-3;                
 % NLMS regularization
 delta = 1e-3;               
-
-% Leakage (0 = none). Helps prevent drift in real systems.
+% Leakage factor (0 = none). Helps prevent drift in real systems.
 leak = 1e-5;
 
 %% Estimate secondary path from impulse response
 
-[s_raw,Fs] = audioread('Spath_SL_21_1.wav');
+[s_raw,Fs] = audioread('Impulse responses/Spath_SL_27_2.wav');
 
 % Quick check to see if files have been exported correctly (4800 samples)
 fprintf('Loaded IR: %d samples, Fs = %d Hz, duration = %.3f s\n', ...
@@ -61,8 +60,9 @@ else
 end
 
 S_hat = h_win;
-% S_hat = S_hat / (max(abs(S_hat)) + eps);  % peak normalise
-% S_hat = S_hat / (norm(S_hat) + eps);  % energy normalise
+S_hat = S_hat / (max(abs(S_hat)) + eps);  % peak normalise
+% energy normalise (not necessary as negligible effect
+% S_hat = S_hat / (norm(S_hat) + eps);  
 
 % Plot
 t_ms = (0:length(S_hat)-1)/Fs*1000;
@@ -136,9 +136,7 @@ y_buf_S    = zeros(length(S_hat)-1, 1);
 rng(0);
 disp("FxNLMS in progress...")
 
-%% Plot setup
-
-phase = round(20 * fs/ frame_size);
+%% Scope setup
 
 scope = timescope( ...
     'SampleRate', fs, ...
@@ -150,7 +148,7 @@ scope = timescope( ...
     'YLimits', [-0.1 0.1]);
 
 % Data recording
-Trec = 40;
+Trec = 60;
 Nrec = round(Trec * fs);
 
 micLog   = zeros(Nrec, reader.NumChannels, 'single');  % raw interface inputs
@@ -162,30 +160,39 @@ y_frame = zeros(frame_size, 1);
 
 %% ---------------- Main ANC loop ----------------
 
-for i = 1:2
-    disp('Phase' + string(i))
+phase = round(30 * fs/ frame_size);
 
+for i = 1:2
+    fprintf('\n========== Phase %d ==========\n', i);
+    if i == 1
+        disp('Collecting baseline (no ANC)...');
+    else
+        disp('ANC active - adapting weights...');
+    end
+    
     for k = 1:phase
-        % Random noise to noise speaker
+        %% Random noise to noise speaker
         % x = 0.02 * randn(frame_size,1);
-        time = (0:frame_size-1)/fs;
-        x = 0.03*sin(2*pi*400*time)';    
+        % time = (0:frame_size-1)/fs;
+        % x = 0.03*sin(2*pi*400*time)';    
         
-        % Initialise error and reference mic
+        %% Initialise error and reference mic
         in = reader();
+        em = in(:,err_chan);
+        x = in(:,ref_chan);
+
+        %% Data recording
         idx2 = writeIdx + frame_size - 1;
         if idx2 <= Nrec
             micLog(writeIdx:idx2, :) = single(in);
             xLog(writeIdx:idx2)      = single(x);
             yLog(writeIdx:idx2)      = single(y_frame);
+            writeIdx = idx2 + 1;
         else
             break
         end
-        writeIdx = idx2 + 1;
-
-        em = in(:,err_chan);
-        % x = in(:,ref_chan);
         
+        %%
         if i == 1
             y_frame = zeros(frame_size, 1);
             % if mod(k,50)==0
@@ -195,7 +202,7 @@ for i = 1:2
         else
             % Controller output for next frame
             [y_frame, x_buf] = filter(w, 1, x, x_buf);
-            ymax = 0.05;
+            ymax = 0.3;
             y_frame = max(min(y_frame, ymax), -ymax);
             % FxLMS algorithm
             [x_f, y_buf_S] = filter(S_hat, 1, x, y_buf_S);
@@ -210,11 +217,12 @@ for i = 1:2
         % Create empty array to match channel size
         y_out = zeros(frame_size, 8);
         % Concatenate arrays for output
-        y_out(:,noise_chan) = x;
+        % y_out(:,noise_chan) = x;
         y_out(:,cancel_chan) = y_frame;
         % Write audio data to specified dev
         writer(y_out);
-
+        
+        %% Scope update for each phase
         if i == 1
             scope(em, zeros(size(em)));
         else
@@ -223,11 +231,12 @@ for i = 1:2
     end
 
     if writeIdx > Nrec
-        break;  % Exit outer loop too
+        break;
     end
 end
 
-audiowrite("mics_raw_4.wav", micLog, fs);
-audiowrite("x_noise_4.wav",  xLog,   fs);
-audiowrite("y_cancel_4.wav", yLog,   fs);
+% Save recorded data, change XX to required test run
+audiowrite("mics_raw_XX.wav", micLog, fs);
+audiowrite("x_noise_XX.wav",  xLog,   fs);
+audiowrite("y_cancel_XX.wav", yLog,   fs);
 disp("Saved mics_raw.wav, x_noise.wav, y_cancel.wav");
