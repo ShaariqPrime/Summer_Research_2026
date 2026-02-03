@@ -1,6 +1,7 @@
 # Simulink / MATLAB generated folders
 slprj/
 Reaper setup/
+Mic_specs/
 *.slxc
 *.autosave
 *.asv
