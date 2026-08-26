@@ -5,3 +5,8 @@ Mic_specs/
 *.slxc
 *.autosave
 *.asv
+
+# Raw audio recordings / measured data - large binaries, keep out of git history.
+# Share these via Teams/OneDrive instead; only the generated figures (*.png) are tracked.
+*.wav
+*.mat
