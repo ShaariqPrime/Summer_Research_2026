@@ -1,4 +1,6 @@
-# Active Noise Control (ANC) Project
+# Active Noise Control (ANC) Summer Research Project
+
+***Note:Due to time constraints, this README contains AI generated summaries of work done in this project. All other files were created manually and verified by my supervisor.***
 
 Real-time feedforward Active Noise Control using the Filtered-x (Normalized) LMS
 algorithm, developed and tested on a Behringer UMC404HD audio interface with
@@ -30,7 +32,7 @@ Run these in order:
    spectrogram comparison, performance dashboard).
 
 **Hardware setup:** Behringer UMC404HD (or similar) used for both input and
-output. Reference mic on input channel 1, error mics on the remaining input
+output (This was a last minute change, if not working use older files listed below). Reference mic on input channel 1, error mics on the remaining input
 channels. Cancellation speakers on 2 output channels. Device auto-detection
 in the scripts matches on device name substrings (e.g. `"in 1-4 (behringer"`)
 — update these strings if you're on different hardware.
