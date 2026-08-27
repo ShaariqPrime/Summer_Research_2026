@@ -1,6 +1,6 @@
 # Active Noise Control (ANC) Summer Research Project
 
-***Note:Due to time constraints, this README contains AI generated summaries of work done in this project. All other files were created manually and verified by my supervisor.***
+***Note: Due to time constraints, this README contains AI generated summaries of work done in this project***. **ALL** ***other files were created manually and verified by my supervisor.***
 
 Real-time feedforward Active Noise Control using the Filtered-x (Normalized) LMS
 algorithm, developed and tested on a Behringer UMC404HD audio interface with
